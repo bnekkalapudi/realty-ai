@@ -68,6 +68,8 @@ const FURNITURE_PROMPT =
   "Use the virtually staged furniture as fixed, real objects in the room. Keep furniture stable during camera motion with no morphing, object drift, flicker, or sudden style changes. Never change architecture or invent structural features.";
 const STAGING_IMAGE_PROMPT =
   "Stage this vacant or sparse room with tasteful contemporary real estate furniture. Preserve architecture, windows, doors, flooring, wall color, built-ins, camera angle, perspective, lighting, and exterior views. Keep scale realistic, styling uncluttered, and do not add people, text, or impossible objects.";
+const CINEMATIC_IMAGE_PROMPT =
+  "Transform this photo into a cinematic editorial image with harsh, directional shadows and crisp light shaping. Correct any perspective distortion so verticals stay vertical and horizontals stay level. Maintain the exact scene composition after correction and preserve the original white balance. Balance exposure intentionally: lift interior midtones subtly for readability while preserving deep sculpted shadow structure and strong contrast. Keep highlights controlled and natural. Apply filmic window pulls that preserve dense, rich exterior views with localized realistic recovery and no haloing. Preserve all architectural and interior details. The result should feel well-lit yet moody, polished, cinematic, and structurally unchanged. Derive all lighting direction strictly from visible sources in the frame and do not introduce light from illogical directions.";
 const TV_IMAGE_PROMPT =
   "Add one tasteful modern TV before furniture staging. Place it only where a professional stager would naturally put a TV, keep it correctly scaled and aligned, and preserve architecture, lighting, perspective, materials, and exterior views. Do not add any other furniture, people, text, logos, or UI in this step.";
 const FIREPLACE_PROMPT =
@@ -122,6 +124,18 @@ const sceneTreatmentOptions = {
     { value: "remove", label: "Fireplace: Remove" }
   ]
 };
+const imageTreatmentOptions = [
+  {
+    id: "cinematic",
+    name: "Cinematic",
+    description: "Editorial shadows, stronger window pulls, more intentional contrast."
+  },
+  {
+    id: "natural",
+    name: "Natural",
+    description: "Keeps the image treatment more restrained and closer to the source look."
+  }
+];
 const tvScenes = [
   {
     id: "coral-fish",
@@ -281,6 +295,7 @@ const state = {
   selectedThemeId: initialSettings.selectedThemeId ?? "ski-house",
   selectedMusicId: musicTracks.some((track) => track.id === initialSettings.selectedMusicId) ? initialSettings.selectedMusicId : DEFAULT_MUSIC_ID,
   selectedTvSceneId: tvScenes.some((scene) => scene.id === initialSettings.selectedTvSceneId) ? initialSettings.selectedTvSceneId : DEFAULT_TV_SCENE_ID,
+  selectedImageTreatmentId: imageTreatmentOptions.some((option) => option.id === initialSettings.selectedImageTreatmentId) ? initialSettings.selectedImageTreatmentId : "cinematic",
   targetDurationSec: clampTargetDuration(initialSettings.targetDurationSec),
   addFurniture: initialSettings.addFurniture ?? true,
   addFireplaceFire: initialSettings.addFireplaceFire ?? true,
@@ -365,6 +380,9 @@ function render() {
           </div>
 
           <h2>Room Treatment</h2>
+          <div class="image-treatment-list">
+            ${imageTreatmentOptions.map(imageTreatmentCard).join("")}
+          </div>
           <label class="option-card ${state.addFurniture ? "selected" : ""}">
             <input type="checkbox" data-action="toggle-furniture" ${state.addFurniture ? "checked" : ""} />
             <span>
@@ -473,6 +491,9 @@ function bindEvents() {
   });
   document.querySelectorAll("[data-tv-scene-id]").forEach((button) => {
     button.addEventListener("click", () => selectTvScene(button.dataset.tvSceneId));
+  });
+  document.querySelectorAll("[data-image-treatment-id]").forEach((button) => {
+    button.addEventListener("click", () => selectImageTreatment(button.dataset.imageTreatmentId));
   });
   document.querySelector("#duration-input")?.addEventListener("input", (event) => {
     selectTargetDuration(event.target.value);
@@ -1076,6 +1097,7 @@ function buildFurnitureStagingPrompt(file, analysis, tvWasAdded) {
   if (tvWasAdded) {
     return [
       STAGING_IMAGE_PROMPT,
+      getImageTreatmentPrompt(),
       consistencyPrompt,
       "A TV was already added in the previous step before furniture staging.",
       "Preserve the TV exactly where it is: do not move it, resize it, replace it, crop it, cover it, remove it, or alter the screen content.",
@@ -1087,6 +1109,7 @@ function buildFurnitureStagingPrompt(file, analysis, tvWasAdded) {
 
   return [
     STAGING_IMAGE_PROMPT,
+    getImageTreatmentPrompt(),
     consistencyPrompt,
     `The pre-furniture TV analysis says a TV does not make sense here: ${analysis.tvReason || analysis.reason || "no suitable TV placement was found."}`,
     "Do not add a TV, monitor, projector screen, or glowing display."
@@ -1374,7 +1397,7 @@ function buildDrivewaySurfacePrompt(file) {
 function buildSceneFurniturePrompt(mode, file) {
   const consistencyPrompt = buildRoomConsistencyPrompt(file);
   if (mode === "add") {
-    return [STAGING_IMAGE_PROMPT, consistencyPrompt, "Add furniture confidently for this one scene and keep the room premium, balanced, and realistic."]
+    return [STAGING_IMAGE_PROMPT, getImageTreatmentPrompt(), consistencyPrompt, "Add furniture confidently for this one scene and keep the room premium, balanced, and realistic."]
       .filter(Boolean)
       .join(" ");
   }
@@ -2626,6 +2649,16 @@ function tvSceneCard(scene) {
   `;
 }
 
+function imageTreatmentCard(option) {
+  const selected = state.selectedImageTreatmentId === option.id;
+  return `
+    <button type="button" class="theme-card image-treatment-card ${selected ? "selected" : ""}" data-image-treatment-id="${escapeHtml(option.id)}">
+      <strong>${escapeHtml(option.name)}</strong>
+      <small>${escapeHtml(option.description)}</small>
+    </button>
+  `;
+}
+
 function clampTargetDuration(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return MIN_TARGET_DURATION_SEC;
@@ -2643,6 +2676,21 @@ function formatDuration(seconds) {
 
 function estimateSceneCount(seconds) {
   return Math.max(1, Math.floor(clampTargetDuration(seconds) / SCENE_DURATION_SECONDS));
+}
+
+function selectImageTreatment(treatmentId) {
+  const nextTreatment = imageTreatmentOptions.find((option) => option.id === treatmentId) ?? imageTreatmentOptions[0];
+  if (!nextTreatment || nextTreatment.id === state.selectedImageTreatmentId) return;
+  state.selectedImageTreatmentId = nextTreatment.id;
+  saveSettings();
+  clearFurnitureOutputs();
+  clearFireplaceOutputs();
+  resetRuntimeProject();
+  render();
+}
+
+function getImageTreatmentPrompt() {
+  return state.selectedImageTreatmentId === "cinematic" ? CINEMATIC_IMAGE_PROMPT : "";
 }
 
 function getTvScene(sceneId = state.selectedTvSceneId) {
@@ -2889,6 +2937,7 @@ function saveSettings() {
         selectedThemeId: state.selectedThemeId,
         selectedMusicId: state.selectedMusicId,
         selectedTvSceneId: state.selectedTvSceneId,
+        selectedImageTreatmentId: state.selectedImageTreatmentId,
         targetDurationSec: state.targetDurationSec,
         addFurniture: state.addFurniture,
         addFireplaceFire: state.addFireplaceFire,

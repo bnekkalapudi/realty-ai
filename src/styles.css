@@ -1123,6 +1123,22 @@ h1 {
   color: #5b6763;
 }
 
+
+.image-treatment-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.image-treatment-card strong {
+  font-size: 13px;
+}
+
+.image-treatment-card small {
+  color: #69736f;
+  line-height: 1.35;
+}
+
 .option-card {
   display: flex;
   align-items: center;
