@@ -69,7 +69,11 @@ const FURNITURE_PROMPT =
 const STAGING_IMAGE_PROMPT =
   "Stage this vacant or sparse room with tasteful contemporary real estate furniture. Preserve architecture, windows, doors, flooring, wall color, built-ins, camera angle, perspective, lighting, and exterior views. Keep scale realistic, styling uncluttered, and do not add people, text, or impossible objects.";
 const CINEMATIC_IMAGE_PROMPT =
-  "Transform this photo into a cinematic editorial image with harsh, directional shadows and crisp light shaping. Correct any perspective distortion so verticals stay vertical and horizontals stay level. Maintain the exact scene composition after correction and preserve the original white balance. Balance exposure intentionally: lift interior midtones subtly for readability while preserving deep sculpted shadow structure and strong contrast. Keep highlights controlled and natural. Apply filmic window pulls that preserve dense, rich exterior views with localized realistic recovery and no haloing. Preserve all architectural and interior details. The result should feel well-lit yet moody, polished, cinematic, and structurally unchanged. Derive all lighting direction strictly from visible sources in the frame and do not introduce light from illogical directions.";
+  "Transform this photo into a cinematic editorial image with harsh, directional shadows and crisp light shaping. Correct any perspective distortion so vertical lines are truly vertical and horizontal lines are level. Maintain the exact scene composition after correction and preserve the original white balance. Balance overall exposure with intention: raise interior midtones subtly for improved readability and presence, while preserving deep, sculpted shadow structure and strong contrast. The interior should feel brighter and more intentional, not flat or evenly lit; shadows must remain graphic, directional, and editorial. Highlights should stay controlled and natural. Apply intentional, filmic window pulls that reveal deep, rich exterior views and preserve sky density, environmental color, and contrast beyond the glass. Exterior scenes should feel dimensional and weighty, never washed out or pastel. Window highlights must roll off smoothly with realistic falloff; avoid haloing, edge glow, or global tonal compression. Do not flatten contrast or lift blacks globally. Window recovery should feel localized, natural, and optically believable, similar to a well-exposed negative rather than HDR processing. Preserve all architectural and interior details. The scene should feel well-lit yet moody, polished, and cinematic. Derive all lighting direction strictly from visible sources in the frame, including windows, doors, architectural openings, and practical fixtures. Do not introduce light from walls or areas without logical entry points.";
+const CINEMATIC_DETAIL_IMAGE_PROMPT =
+  "Extreme close-up detail shot with smooth tracking camera following harsh directional light as it grows and spreads across textured surface. Crisp shadow edges crawl and shift in real time. Camera moves with the light's path revealing texture in wood grain, fabric weave, and architectural detail. Editorial film style. Neutral white balance, balanced exposure, deep dramatic shadows without underexposure, and shallow depth of field. Preserve exact architecture, materials, and believable real-estate detail while reframing into a cinematic editorial close-up.";
+const HDR_TIMELAPSE_VIDEO_PROMPT =
+  "Very slow truck right, time-lapse light progression, camera slides laterally while light shifts across the space, shadows gradually move and lengthen, parallax effect, consistent exposure, stable motion, cinematic, photorealistic.";
 const TV_IMAGE_PROMPT =
   "Add one tasteful modern TV before furniture staging. Place it only where a professional stager would naturally put a TV, keep it correctly scaled and aligned, and preserve architecture, lighting, perspective, materials, and exterior views. Do not add any other furniture, people, text, logos, or UI in this step.";
 const FIREPLACE_PROMPT =
@@ -715,6 +719,23 @@ async function generateProject() {
       state.files = await Promise.all(state.files.map(stageFireplaceForRender));
       render();
     }
+    if (state.selectedImageTreatmentId === "cinematic") {
+      state.project = {
+        ...state.project,
+        status: "staging",
+        message: `Applying cinematic HDR process before video generation...`
+      };
+      state.files = state.files.map((file) => ({
+        ...file,
+        uploadStatus: file.treatedImageUrl ? "treated" : "staging",
+        uploadMessage: file.treatedImageUrl ? "Cinematic HDR process applied." : "Applying cinematic HDR process..."
+      }));
+      render();
+      const treatmentResult = await applyImageTreatmentWithFallback(state.files);
+      state.files = treatmentResult.files;
+      mergeProjectWarnings(treatmentResult.warning);
+      render();
+    }
   } catch (error) {
     markFilesWorkflowFailed(error instanceof Error ? error.message : "Fal asset preparation failed.");
     state.project = {
@@ -1050,6 +1071,64 @@ function summarizeStageError(message) {
   return `${message.slice(0, 117)}...`;
 }
 
+async function applyImageTreatmentForRender(file) {
+  if (state.selectedImageTreatmentId !== "cinematic") return file;
+  const sourceImageUrl = file.fireImageUrl ?? file.stagedImageUrl ?? file.falUrl ?? file.dataUrl;
+  if (!sourceImageUrl) return file;
+
+  const cinematicResult = await stageRenderImage({
+    imageUrl: sourceImageUrl,
+    fileName: file.name,
+    prompt: CINEMATIC_IMAGE_PROMPT
+  });
+  if (!cinematicResult.ok || !cinematicResult.imageUrl) {
+    const message = cinematicResult.message ?? cinematicResult.data?.message ?? "Cinematic treatment failed.";
+    throw new Error(`Could not create cinematic base for ${file.name}: ${message}`);
+  }
+
+  const detailResult = await stageRenderImage({
+    imageUrl: cinematicResult.imageUrl,
+    fileName: file.name,
+    prompt: CINEMATIC_DETAIL_IMAGE_PROMPT
+  });
+  if (!detailResult.ok || !detailResult.imageUrl) {
+    const message = detailResult.message ?? detailResult.data?.message ?? "Cinematic detail treatment failed.";
+    throw new Error(`Could not create cinematic detail for ${file.name}: ${message}`);
+  }
+
+  return {
+    ...file,
+    cinematicBaseImageUrl: cinematicResult.imageUrl,
+    treatedImageUrl: detailResult.imageUrl,
+    uploadStatus: "treated",
+    uploadMessage: "Cinematic HDR process applied."
+  };
+}
+
+async function applyImageTreatmentWithFallback(files) {
+  const results = await Promise.all(
+    files.map(async (file) => {
+      try {
+        return await applyImageTreatmentForRender(file);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Image treatment failed.";
+        return {
+          ...file,
+          treatmentError: message,
+          uploadMessage: `${file.uploadMessage ?? "Kept original."} Cinematic treatment skipped. ${summarizeStageError(message)}`
+        };
+      }
+    })
+  );
+  const failed = results.filter((file) => file.treatmentError);
+  return {
+    files: results,
+    warning: failed.length
+      ? `${failed.length} photo${failed.length === 1 ? "" : "s"} could not complete the cinematic HDR process and continued with the prior image. First error: ${summarizeStageError(failed[0].treatmentError)}`
+      : ""
+  };
+}
+
 function mergeProjectWarnings(warning) {
   if (!warning || !state.project) return;
   const existing = Array.isArray(state.project.warnings) ? state.project.warnings : [];
@@ -1330,6 +1409,9 @@ function buildShotMotionPrompt(theme, file, index, total) {
   if (category === 'arrival') {
     return (theme.id === 'moody-modern' ? VIDEO_MOVEMENTS.dollyPanRight : VIDEO_MOVEMENTS.dollyIn) + ' Premium arrival reveal. Preserve exact facade, entry, driveway, hardscape, and landscape with no added structure.';
   }
+  if (state.selectedImageTreatmentId === 'cinematic') {
+    return HDR_TIMELAPSE_VIDEO_PROMPT;
+  }
   if (category === 'living' || category === 'kitchen') {
     if (theme.id === 'editorial-timelapse') return VIDEO_MOVEMENTS.wideSlide;
     if (theme.id === 'airy-luxury') return VIDEO_MOVEMENTS.wideDollyIn;
@@ -1360,8 +1442,8 @@ function makeClip({ theme, index, start, total }) {
       tv: "project",
       fireplace: "project"
     },
-    imageUrl: start.fireImageUrl ?? start.stagedImageUrl ?? start.falUrl ?? start.dataUrl,
-    previewUrl: start.fireImageUrl ?? start.stagedImageUrl ?? start.falUrl ?? start.dataUrl,
+    imageUrl: start.treatedImageUrl ?? start.fireImageUrl ?? start.stagedImageUrl ?? start.falUrl ?? start.dataUrl,
+    previewUrl: start.treatedImageUrl ?? start.fireImageUrl ?? start.stagedImageUrl ?? start.falUrl ?? start.dataUrl,
     endImageUrl: "",
     status: "pending",
     message: "Waiting to submit.",
@@ -1458,6 +1540,9 @@ async function prepareSceneForRerun(file, clip) {
     }
     if (state.addFireplaceFire) {
       working = await stageFireplaceForRender(working);
+    }
+    if (state.selectedImageTreatmentId === "cinematic") {
+      working = await applyImageTreatmentForRender(working);
     }
     return working;
   }
@@ -1590,7 +1675,7 @@ async function prepareSceneForRerun(file, clip) {
     baseImageUrl = fireImageUrl;
   }
 
-  return {
+  let finalWorking = {
     ...working,
     stagedImageUrl: stagedImageUrl || undefined,
     fireImageUrl: fireImageUrl || undefined,
@@ -1599,6 +1684,10 @@ async function prepareSceneForRerun(file, clip) {
     tvSceneId,
     tvSceneName
   };
+  if (state.selectedImageTreatmentId === "cinematic") {
+    finalWorking = await applyImageTreatmentForRender(finalWorking);
+  }
+  return finalWorking;
 }
 
 async function submitScene(sceneId) {
@@ -2722,6 +2811,8 @@ function clearFurnitureOutputs() {
     stagedImageUrl: undefined,
     tvImageUrl: undefined,
     fireImageUrl: undefined,
+    treatedImageUrl: undefined,
+    cinematicBaseImageUrl: undefined,
     furnitureAnalysis: undefined,
     fireplaceAnalysis: undefined,
     tvAdded: undefined,
@@ -2740,6 +2831,8 @@ function clearFireplaceOutputs() {
   state.files = state.files.map((file) => ({
     ...file,
     fireImageUrl: undefined,
+    treatedImageUrl: undefined,
+    cinematicBaseImageUrl: undefined,
     fireplaceAnalysis: undefined,
     uploadStatus: file.stagedImageUrl ? "staged" : file.falUrl ? "uploaded" : "",
     uploadMessage: file.stagedImageUrl ? "Furniture added." : file.falUrl ? "Uploaded to Fal CDN." : "Local preview ready."
