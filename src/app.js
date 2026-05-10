@@ -78,6 +78,22 @@ const DRIVEWAY_SURFACE_PROMPT =
   "For exterior arrival shots with visible driveway or hardscape, reduce harsh midday shadow contrast on the pavement. If it helps, give the driveway a very subtle freshly misted or lightly wet finish to soften glare and improve reflections. Keep it believable, premium, and restrained. Do not make the scene look rainy, puddled, flooded, or artificially glossy.";
 const STRUCTURE_LOCK_PROMPT =
   "Preserve the exact architecture from the source image. Do not invent or remove fireplaces, fireboxes, outdoor kitchen elements, built-ins, wall openings, alcoves, columns, chimneys, fountains, windows, doors, rooflines, or any other structural feature. If a feature is not clearly visible in the source image, it must not appear in the video.";
+const VIDEO_MOVEMENTS = {
+  dollyIn: "Super smooth camera moves forward in straight line through space, cinematic.",
+  dollyInTimelapse: "Super smooth camera moves forward in straight line through space, time-lapse light progression, shadows gradually move and lengthen, parallax effect, consistent exposure, stable motion, cinematic, photorealistic.",
+  droneTopDownDescend: "Super smooth camera descends in a straight line through space, cinematic.",
+  dollyOut: "Super smooth camera moves backward in straight line revealing space, cinematic.",
+  truckLeftToRight: "Super smooth camera glides horizontally from left to right, parallel path, cinematic.",
+  truckRightToLeft: "Super smooth camera glides horizontally from right to left, parallel path, cinematic.",
+  parallaxOrbit: "Super smooth camera travels in arc around subject, subject stays centered, cinematic.",
+  dollyPanRight: "Super smooth camera moves forward while rotating gradually right, curved path, cinematic.",
+  craneUp: "Super smooth camera rises vertically upward, straight vertical path, cinematic.",
+  craneDown: "Super smooth camera descends vertically downward, straight vertical path, cinematic.",
+  orbitHyperlapse: "Super smooth camera travels in arc around subject, subject stays centered, sky hyperlapses naturally in the background, cinematic.",
+  wideSlide: "Wide interior shot with slow trucking movement side to side as harsh directional light moves and expands across walls, furnishings, and architectural surfaces. Crisp shadow edges in motion. Editorial film style. Neutral white balance, balanced exposure, smooth parallel motion, atmospheric architectural cinematography.",
+  wideDollyIn: "Wide interior shot with a slow and smooth dolly in. Dramatic shadows crawl and shift across surfaces and furnishings. Editorial film style. Neutral white balance, balanced exposure, smooth motion, atmospheric architectural cinematography.",
+  tightTruck: "Tight interior shot with slow trucking movement side to side as directional light moves across textured surfaces. Crisp shadows shift gently. Editorial film style. Neutral white balance, balanced exposure, smooth parallel motion."
+};
 
 const DEFAULT_MUSIC_ID = "sunlit-drive";
 const DEFAULT_TV_SCENE_ID = "coral-fish";
@@ -1276,6 +1292,39 @@ function markFilesWorkflowFailed(message) {
   );
 }
 
+function buildThemeDirectionPrompt(theme) {
+  return [theme.prompt, theme.atmosphere ? 'Theme mood: ' + theme.atmosphere : ''].filter(Boolean).join(' ');
+}
+
+function buildShotMotionPrompt(theme, file, index, total) {
+  const category = classifySequenceCategory(file);
+  if (category === 'hero-aerial') {
+    return VIDEO_MOVEMENTS.droneTopDownDescend + ' Premium establishing aerial for scene ' + (index + 1) + ' of ' + total + '. Preserve exact rooflines, landscape, and property geometry.';
+  }
+  if (category === 'feature-exterior') {
+    return VIDEO_MOVEMENTS.parallaxOrbit + ' Highlight the exterior feature as a premium amenity while preserving exact hardscape, fountain geometry, and landscaping.';
+  }
+  if (category === 'arrival') {
+    return (theme.id === 'moody-modern' ? VIDEO_MOVEMENTS.dollyPanRight : VIDEO_MOVEMENTS.dollyIn) + ' Premium arrival reveal. Preserve exact facade, entry, driveway, hardscape, and landscape with no added structure.';
+  }
+  if (category === 'living' || category === 'kitchen') {
+    if (theme.id === 'editorial-timelapse') return VIDEO_MOVEMENTS.wideSlide;
+    if (theme.id === 'airy-luxury') return VIDEO_MOVEMENTS.wideDollyIn;
+    if (theme.id === 'moody-modern') return VIDEO_MOVEMENTS.parallaxOrbit;
+    return VIDEO_MOVEMENTS.dollyIn;
+  }
+  if (category === 'bath' || category === 'detail') {
+    return theme.id === 'editorial-timelapse' ? VIDEO_MOVEMENTS.tightTruck : VIDEO_MOVEMENTS.truckRightToLeft;
+  }
+  if (category === 'outdoor') {
+    return theme.id === 'editorial-timelapse' ? VIDEO_MOVEMENTS.orbitHyperlapse : VIDEO_MOVEMENTS.craneUp;
+  }
+  if (category === 'primary-bedroom' || category === 'bedroom') {
+    return theme.id === 'moody-modern' ? VIDEO_MOVEMENTS.dollyOut : VIDEO_MOVEMENTS.dollyIn;
+  }
+  return theme.id === 'editorial-timelapse' ? VIDEO_MOVEMENTS.dollyInTimelapse : VIDEO_MOVEMENTS.dollyIn;
+}
+
 function makeClip({ theme, index, start, total }) {
   return {
     id: `scene-${Date.now()}-${index}`,
@@ -1294,7 +1343,8 @@ function makeClip({ theme, index, start, total }) {
     status: "pending",
     message: "Waiting to submit.",
     prompt: [
-      theme.prompt,
+      buildThemeDirectionPrompt(theme),
+      buildShotMotionPrompt(theme, start, index, total),
       STRUCTURE_LOCK_PROMPT,
       state.addFurniture ? FURNITURE_PROMPT : "",
       buildTvMotionPrompt(start),
