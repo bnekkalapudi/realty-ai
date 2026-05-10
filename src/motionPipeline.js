@@ -50,7 +50,7 @@ export const creatorStyles = [
   {
     id: "editorial-timelapse",
     name: "Editorial Timelapse",
-    creator: "AutoHDR Lab",
+    creator: "Realty AI",
     musicCue: "84 BPM minimal pulse",
     colorGrade: "neutral whites, dimensional shadows, rich window views",
     modelPreference: {

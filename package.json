@@ -2,7 +2,7 @@
   "name": "autohdr-photo-to-video-studio",
   "version": "0.1.0",
   "private": true,
-  "description": "Zero-to-one prototype for AutoHDR automated real estate photo-to-video style generation.",
+  "description": "Zero-to-one prototype for Realty AI automated real estate photo-to-video generation.",
   "type": "module",
   "scripts": {
     "dev": "node server.mjs",

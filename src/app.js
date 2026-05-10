@@ -324,7 +324,7 @@ function render() {
     <main class="simple-app theme-shell theme-${escapeHtml(theme.id)}">
       <header class="simple-header theme-home" style="background:${escapeHtml(theme.surface ?? "#fffdf8")}">
         <div>
-          <span class="eyebrow">AutoHDR</span>
+          <span class="eyebrow">Realty AI</span>
           <h1>One Video From Multiple Photos</h1>
           <p>${escapeHtml(theme.atmosphere ?? "Upload a full photoshoot, pick a style, and generate one final themed video sequence with Fal Seedance 2.0.")}</p>
           <div class="theme-home-cues">
