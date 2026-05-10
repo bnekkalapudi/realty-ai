@@ -145,8 +145,8 @@ const tvScenes = [
     id: "coral-fish",
     name: "Coral Fish",
     label: "Default",
-    prompt: "a vivid coral reef fish video with colorful tropical fish, reef texture, clean blue water, and subtle underwater movement",
-    motionPrompt: "a calm coral reef fish video with tropical fish drifting across the TV screen"
+    prompt: "a vivid coral reef fish video with colorful tropical fish, reef texture, clean blue water, active fish movement, gentle schooling behavior, and believable underwater motion inside the TV screen",
+    motionPrompt: "a lively coral reef fish video with clearly active tropical fish swimming across the TV screen, visible fin motion, small directional changes, and natural underwater movement that feels energetic but tasteful"
   },
   {
     id: "nature",
@@ -782,13 +782,30 @@ async function generateProject() {
   render();
 }
 
+function buildRoomCoverageMap(files) {
+  const groups = new Map();
+  files.forEach((file, index) => {
+    const key = file.roomGroupId || `solo-${file.id}`;
+    const entry = groups.get(key) ?? { count: 0, firstIndex: index, firstFileId: file.id };
+    entry.count += 1;
+    if (index < entry.firstIndex) {
+      entry.firstIndex = index;
+      entry.firstFileId = file.id;
+    }
+    groups.set(key, entry);
+  });
+  return groups;
+}
+
 function buildClips(theme, files = state.files) {
+  const roomCoverage = buildRoomCoverageMap(files);
   return files.map((file, index) =>
     makeClip({
       theme,
       index,
       start: file,
-      total: files.length
+      total: files.length,
+      roomCoverage
     })
   );
 }
@@ -817,7 +834,7 @@ function chooseFilesForTimeline(files, targetDurationSec) {
       selected: files.map((file, index) => ({
         id: file.id,
         name: file.name,
-        imageUrl: file.fireImageUrl || file.stagedImageUrl || file.dataUrl || file.falUrl || "",
+        imageUrl: preferredPersistedImageUrl(file),
         selectionRank: rankById.get(file.id) ?? index + 1,
         reason: `Selected in original order. Fits within the ${formatDuration(clampedDuration)} cap.`,
         originalSequenceIndex: index
@@ -861,7 +878,7 @@ function chooseFilesForTimeline(files, targetDurationSec) {
     .map((file) => ({
       id: file.id,
       name: file.name,
-      imageUrl: file.fireImageUrl || file.stagedImageUrl || file.dataUrl || file.falUrl || "",
+      imageUrl: preferredPersistedImageUrl(file),
       selectionRank: file.selectionRank,
       reason: explainSkippedFile(file, groups, clampedDuration),
       originalSequenceIndex: file.originalSequenceIndex
@@ -873,7 +890,7 @@ function chooseFilesForTimeline(files, targetDurationSec) {
     selected: ordered.map((file) => ({
       id: file.id,
       name: file.name,
-      imageUrl: file.fireImageUrl || file.stagedImageUrl || file.dataUrl || file.falUrl || "",
+      imageUrl: preferredPersistedImageUrl(file),
       selectionRank: rankById.get(file.id) ?? file.originalSequenceIndex + 1,
       reason: explainSelectedFile(file),
       originalSequenceIndex: file.originalSequenceIndex
@@ -992,6 +1009,36 @@ function inferRoomLabel(text) {
 
 function normalizeSelectionText(value) {
   return String(value ?? "").toLowerCase();
+}
+
+function preferredPersistedImageUrl(file) {
+  return file.treatedImageUrl || file.fireImageUrl || file.stagedImageUrl || file.falUrl || file.dataUrl || "";
+}
+
+function sanitizeProjectForStorage(project) {
+  if (!project) return null;
+  const sanitizeUrl = (value) => (typeof value === "string" && value.startsWith("data:") ? "" : value || "");
+  return {
+    ...project,
+    clips: Array.isArray(project.clips)
+      ? project.clips.map((clip) => ({
+          ...clip,
+          imageUrl: sanitizeUrl(clip.imageUrl),
+          previewUrl: sanitizeUrl(clip.previewUrl),
+          endImageUrl: sanitizeUrl(clip.endImageUrl)
+        }))
+      : [],
+    selectionAudit: project.selectionAudit
+      ? {
+          selected: Array.isArray(project.selectionAudit.selected)
+            ? project.selectionAudit.selected.map((item) => ({ ...item, imageUrl: sanitizeUrl(item.imageUrl) }))
+            : [],
+          skipped: Array.isArray(project.selectionAudit.skipped)
+            ? project.selectionAudit.skipped.map((item) => ({ ...item, imageUrl: sanitizeUrl(item.imageUrl) }))
+            : []
+        }
+      : undefined
+  };
 }
 
 async function enrichFilesWithRoomGroups(files) {
@@ -1415,7 +1462,28 @@ function buildLightMotivationPrompt(file, category) {
   return "If windows or openings are not clearly visible in the frame, do not invent sunlight streaks or directional shadow bands. Keep lighting stable and let the camera move carry the shot.";
 }
 
-function buildShotMotionPrompt(theme, file, index, total) {
+function buildRoomCoveragePrompt(file, category, roomCoverage) {
+  const key = file.roomGroupId || `solo-${file.id}`;
+  const entry = roomCoverage?.get?.(key);
+  const isGrouped = Boolean(entry && entry.count >= 2);
+  const isAnchorView = Boolean(entry && entry.firstFileId === file.id);
+  const isLivingRoom = category === "living";
+  if (isGrouped && isAnchorView && isLivingRoom) {
+    return "This room has multiple selected angles. Make this the full-room anchor view: keep the living room composition wide and balanced, show the main seating layout clearly, and do not crop in so far that the room feels cut off.";
+  }
+  if (isGrouped && isAnchorView) {
+    return "This room has multiple selected angles. Make this the establishing full-view shot for the room, showing the overall layout clearly before closer or more stylized views.";
+  }
+  if (isGrouped && isLivingRoom) {
+    return "Because this living room also appears in other angles, preserve enough width and context here that the room still reads clearly. Avoid over-cropping, excessive push-ins, or framing that hides too much of the overall layout.";
+  }
+  if (isPrimaryRoomCategory(category)) {
+    return "Keep the framing balanced and readable, showing enough of the room that the viewer understands the full space rather than only a cropped detail or aggressive zoom-out emphasis.";
+  }
+  return "Keep the composition readable and architectural. Avoid framing that cuts off the space unnecessarily or overemphasizes zoom movement.";
+}
+
+function buildShotMotionPrompt(theme, file, index, total, roomCoverage) {
   const category = classifySequenceCategory(file);
   if (category === 'hero-aerial') {
     return VIDEO_MOVEMENTS.droneTopDownDescend + ' Premium establishing aerial for scene ' + (index + 1) + ' of ' + total + '. Preserve exact rooflines, landscape, and property geometry.';
@@ -1428,9 +1496,9 @@ function buildShotMotionPrompt(theme, file, index, total) {
   }
   if (state.selectedImageTreatmentId === 'cinematic') {
     if (isPrimaryRoomCategory(category)) {
-      return [HDR_TIMELAPSE_VIDEO_PROMPT, buildLightMotivationPrompt(file, category), 'Use the light treatment to support the room reveal rather than overpower it.'].join(' ');
+      return [HDR_TIMELAPSE_VIDEO_PROMPT, buildLightMotivationPrompt(file, category), buildRoomCoveragePrompt(file, category, roomCoverage), 'Use the light treatment to support the room reveal rather than overpower it.'].join(' ');
     }
-    return [VIDEO_MOVEMENTS.dollyIn, buildLightMotivationPrompt(file, category), 'Keep the shot clean and architectural rather than stylizing it with heavy light-play.'].join(' ');
+    return [VIDEO_MOVEMENTS.dollyIn, buildLightMotivationPrompt(file, category), buildRoomCoveragePrompt(file, category, roomCoverage), 'Keep the shot clean and architectural rather than stylizing it with heavy light-play.'].join(' ');
   }
   if (category === 'living' || category === 'kitchen') {
     if (theme.id === 'editorial-timelapse') return VIDEO_MOVEMENTS.wideSlide;
@@ -1450,13 +1518,15 @@ function buildShotMotionPrompt(theme, file, index, total) {
   return theme.id === 'editorial-timelapse' ? VIDEO_MOVEMENTS.dollyInTimelapse : VIDEO_MOVEMENTS.dollyIn;
 }
 
-function makeClip({ theme, index, start, total }) {
+function makeClip({ theme, index, start, total, roomCoverage }) {
   return {
     id: `scene-${Date.now()}-${index}`,
     index,
     title: `Scene ${index + 1} of ${total}`,
     startName: start.name,
     sourceFileId: start.id,
+    roomGroupId: start.roomGroupId,
+    roomLabel: start.roomLabel,
     sceneAdjustments: {
       furniture: "project",
       tv: "project",
@@ -1469,13 +1539,15 @@ function makeClip({ theme, index, start, total }) {
     message: "Waiting to submit.",
     prompt: [
       buildThemeDirectionPrompt(theme),
-      buildShotMotionPrompt(theme, start, index, total),
+      buildShotMotionPrompt(theme, start, index, total, roomCoverage),
       STRUCTURE_LOCK_PROMPT,
       state.addFurniture ? FURNITURE_PROMPT : "",
       buildTvMotionPrompt(start),
       state.addFireplaceFire ? FIREPLACE_PROMPT : "",
       buildDrivewaySurfacePrompt(start),
       `Animate photo ${index + 1} of ${total} as scene ${index + 1} in one continuous real estate walkthrough.`,
+      "Keep the camera horizon level and the lens orientation faithful to the source photo. Do not introduce a casual downward tilt, drooping lens angle, or extra tilt-shift look unless the original composition clearly calls for it.",
+      "Sunlight or shadow motion may evolve when the shot supports it, but it should not appear in every scene by default.",
       "Keep motion natural, avoid warping architecture, preserve room layout and materials, and maintain exact structural fidelity to the source image."
     ]
       .filter(Boolean)
@@ -1486,7 +1558,7 @@ function makeClip({ theme, index, start, total }) {
 function buildTvMotionPrompt(file) {
   if (!file.tvEnhanced && !file.tvAdded) return "";
   const tvScene = getTvScene(file.tvSceneId);
-  return `If the room contains a visible TV, keep the TV physically fixed and correctly masked inside the screen while it clearly plays ${tvScene.motionPrompt}. The TV must look powered on, bright enough to read, and contained fully inside the screen with no black screen, no mirror-like blank reflection, no text, no logos, no UI, no flicker artifacts, and no spill outside the TV frame.`;
+  return `If the room contains a visible TV, keep the TV physically fixed and correctly masked inside the screen while it clearly plays ${tvScene.motionPrompt}. The TV content must feel genuinely active and readable, with enough motion to register immediately rather than looking paused or barely moving. The TV must look powered on, bright enough to read, and contained fully inside the screen with no black screen, no mirror-like blank reflection, no text, no logos, no UI, no flicker artifacts, and no spill outside the TV frame.`;
 }
 
 function buildDrivewaySurfacePrompt(file) {
@@ -2557,6 +2629,8 @@ function buildFallbackSceneFile(clip) {
     originalIndex: clip.index ?? 0,
     size: 0,
     originalSize: 0,
+    roomGroupId: clip.roomGroupId,
+    roomLabel: clip.roomLabel,
     dataUrl: clip.previewUrl?.startsWith("data:") ? clip.previewUrl : undefined,
     falUrl: clip.imageUrl
   };
@@ -2631,7 +2705,8 @@ async function rerunScene(sceneId) {
       theme: getTheme(),
       index: clip.index,
       start: prepared,
-      total: state.project?.clips?.length ?? 1
+      total: state.project?.clips?.length ?? 1,
+      roomCoverage: buildRoomCoverageMap(state.project?.clips?.map((item) => findSourceFileForClip(item) ?? buildFallbackSceneFile(item) ?? { id: item.id, roomGroupId: item.roomGroupId }) ?? [])
     });
     updateClip(sceneId, {
       ...nextClip,
@@ -3093,10 +3168,10 @@ function saveSettings() {
 function saveProject() {
   try {
     const project = state.project
-      ? {
+      ? sanitizeProjectForStorage({
           ...state.project,
           export: state.project.export ? { ...state.project.export, status: state.project.export.status === "building" ? "idle" : state.project.export.status } : undefined
-        }
+        })
       : null;
     localStorage.setItem(PROJECT_KEY, JSON.stringify(project));
   } catch {
