@@ -1398,6 +1398,23 @@ function buildThemeDirectionPrompt(theme) {
   return [theme.prompt, theme.atmosphere ? 'Theme mood: ' + theme.atmosphere : ''].filter(Boolean).join(' ');
 }
 
+function isPrimaryRoomCategory(category) {
+  return ["living", "kitchen", "dining", "primary-bedroom", "bath", "outdoor"].includes(category);
+}
+
+function buildLightMotivationPrompt(file, category) {
+  const text = normalizeSelectionText([file.name, file.roomLabel, file.stagingStyle].filter(Boolean).join(" "));
+  const suggestsWindows = /\b(?:window|windows|view|views|glass|door|doors|patio|deck|slider|sliding|balcony|sunroom|bright|sunlit|daylight)\b/.test(text);
+  const majorRoom = isPrimaryRoomCategory(category);
+  if (suggestsWindows) {
+    return "Only show sunlight, shadow play, or light progression where visible windows, doors, or architectural openings clearly motivate it in the frame. Keep the effect restrained, realistic, and tied to those actual openings.";
+  }
+  if (majorRoom) {
+    return "Prioritize showing the main room clearly and elegantly. If windows or openings are not clearly visible in the frame, avoid adding distinct sun streaks or shadow bands and keep lighting motion minimal and believable.";
+  }
+  return "If windows or openings are not clearly visible in the frame, do not invent sunlight streaks or directional shadow bands. Keep lighting stable and let the camera move carry the shot.";
+}
+
 function buildShotMotionPrompt(theme, file, index, total) {
   const category = classifySequenceCategory(file);
   if (category === 'hero-aerial') {
@@ -1410,7 +1427,10 @@ function buildShotMotionPrompt(theme, file, index, total) {
     return (theme.id === 'moody-modern' ? VIDEO_MOVEMENTS.dollyPanRight : VIDEO_MOVEMENTS.dollyIn) + ' Premium arrival reveal. Preserve exact facade, entry, driveway, hardscape, and landscape with no added structure.';
   }
   if (state.selectedImageTreatmentId === 'cinematic') {
-    return HDR_TIMELAPSE_VIDEO_PROMPT;
+    if (isPrimaryRoomCategory(category)) {
+      return [HDR_TIMELAPSE_VIDEO_PROMPT, buildLightMotivationPrompt(file, category), 'Use the light treatment to support the room reveal rather than overpower it.'].join(' ');
+    }
+    return [VIDEO_MOVEMENTS.dollyIn, buildLightMotivationPrompt(file, category), 'Keep the shot clean and architectural rather than stylizing it with heavy light-play.'].join(' ');
   }
   if (category === 'living' || category === 'kitchen') {
     if (theme.id === 'editorial-timelapse') return VIDEO_MOVEMENTS.wideSlide;
@@ -1839,8 +1859,8 @@ function finalPlayer(project) {
       <video data-final-video src="${escapeHtml(urls[0] ?? "")}" controls playsinline></video>
       <div class="final-player-actions">
         <button class="ghost-button compact" data-action="restart-final">Play From Start</button>
-        <button class="ghost-button compact" data-action="build-download" ${["building", "publishing"].includes(exportState.status) || !mp4Supported ? "disabled" : ""}>
-          ${exportState.status === "building" ? "Building..." : "Build Downloadable Video"}
+        <button class="ghost-button compact" data-action="build-download" ${!mp4Supported ? "disabled" : ""}>
+          ${["building", "publishing"].includes(exportState.status) ? "Build Downloadable Video Again" : "Build Downloadable Video"}
         </button>
         ${state.downloadableVideoUrl ? `<a class="primary-link" data-action="download-final" data-final-download-link href="${escapeHtml(state.downloadableVideoUrl)}" download="${escapeHtml(exportState.fileName ?? "autohdr-final-video.mp4")}">${downloadText}</a>` : ""}
         <span data-final-counter>Scene 1 of ${urls.length}</span>
@@ -1875,6 +1895,12 @@ async function buildDownloadableVideo() {
   const urls = project?.clips?.map((clip) => clip.videoUrl).filter(Boolean) ?? [];
   if (!project || !urls.length) return;
   const selectedMusic = getSelectedMusic();
+  if (["building", "publishing"].includes(project.export?.status)) {
+    updateExportState({
+      status: "idle",
+      message: "Restarting downloadable MP4 build..."
+    });
+  }
 
   updateExportState({
     status: "building",
@@ -2405,6 +2431,27 @@ function updateExportState(patch) {
   saveProject();
 }
 
+function maybeAutoBuildDownloadableVideo() {
+  if (!state.project || state.isGenerating) return;
+  if (state.project.status !== "complete") return;
+  const clips = state.project.clips ?? [];
+  if (!clips.length || clips.some((clip) => !clip.videoUrl)) return;
+  const exportState = state.project.export ?? {};
+  const currentMusicName = getSelectedMusic().name;
+  const hasReadyExport = Boolean(exportState.serverDownloadUrl || exportState.storedVideoId || state.downloadableVideoUrl);
+  const isBusy = ["building", "publishing"].includes(exportState.status);
+  const isFreshReady = hasReadyExport && exportState.status === "ready" && exportState.musicName === currentMusicName;
+  if (isBusy || isFreshReady) return;
+  queueMicrotask(() => {
+    const latestExportState = state.project?.export ?? {};
+    const latestMusicName = getSelectedMusic().name;
+    const latestHasReadyExport = Boolean(latestExportState.serverDownloadUrl || latestExportState.storedVideoId || state.downloadableVideoUrl);
+    const latestIsFreshReady = latestHasReadyExport && latestExportState.status === "ready" && latestExportState.musicName === latestMusicName;
+    if (["building", "publishing"].includes(latestExportState.status) || latestIsFreshReady) return;
+    buildDownloadableVideo();
+  });
+}
+
 function resetDownloadableExport(message) {
   if (state.downloadableVideoUrl?.startsWith("blob:")) URL.revokeObjectURL(state.downloadableVideoUrl);
   state.downloadableVideoUrl = "";
@@ -2561,7 +2608,7 @@ async function rerunScene(sceneId) {
 
   state.activeSceneEditorId = "";
   stopPolling(sceneId);
-  resetDownloadableExport(`${clip.title} changed. Build the downloadable MP4 again to include the refreshed scene.`);
+  resetDownloadableExport(`${clip.title} changed. The downloadable MP4 will be rebuilt automatically when the refreshed scene is ready.`);
   updateClip(sceneId, {
     request_id: undefined,
     requestId: undefined,
@@ -2619,7 +2666,8 @@ function updateProjectStatus() {
   const failed = clips.some((clip) => ["submit_failed", "render_failed", "failed", "error"].includes(clip.status));
   if (complete === clips.length) {
     state.project.status = "complete";
-    state.project.message = "Final video sequence is ready.";
+    state.project.message = "Final video sequence is ready. Preparing the downloadable MP4 automatically.";
+    maybeAutoBuildDownloadableVideo();
   } else if (failed) {
     state.project.status = "partial";
     state.project.message = `${complete}/${clips.length} scenes complete. Some scenes need attention.`;
@@ -2657,7 +2705,7 @@ function markExportMusicStale() {
   if (!hasBuiltExport) return;
   const musicName = getSelectedMusic().name;
   if (exportState.musicName !== musicName) {
-    resetDownloadableExport(`Music is set to ${musicName}. Build the downloadable MP4 again to include it.`);
+    resetDownloadableExport(`Music is set to ${musicName}. The downloadable MP4 will rebuild automatically to include it.`);
   }
 }
 
@@ -2872,7 +2920,7 @@ function selectMusic(musicId) {
   state.selectedMusicId = nextMusic.id;
   saveSettings();
   stopMusicPreview();
-  resetDownloadableExport(`Music changed to ${nextMusic.name}. Build the downloadable MP4 again to include it.`);
+  resetDownloadableExport(`Music changed to ${nextMusic.name}. The downloadable MP4 will rebuild automatically to include it.`);
   render();
 }
 
