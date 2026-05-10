@@ -1,0 +1,74 @@
+Automated Photo-to-Video for HDR
+
+We’d like participants to build automated photo-to-video applications. We are primarily looking for strong systems engineering, creative problem solving, and consistent professional level output.
+
+Below is a detailed description of the product we are working on. You do not need to build this exact product, as long as a photo-to-video generation pipeline is core to your submissions value, you will qualify for the track. However, we include this to give you a better idea of what types of builds are interesting for us and give you a starting point to work from.
+—
+
+We are very close with the biggest real estate videographers/editors in the world and aim to build a system that:
+
+1). Allows them to create videos from sample photoshoots using the video models, prompts, edits, song, and other creative elements that they want, to create a “style” template. We can build the architecture/infrastructure as engineers, but the creatives need to pick the best prompts, models, sequences, songs, etc to give the viewer goosebumps.
+
+2). Allows end users in the future to select from a library of styles when uploading their photoshoots for automated video editing.
+
+End product vision:
+
+A user uploads their edited property photos
+The user selects the video style from their favorite creative videographer/influencer
+They get back a fully edited video, generated from their photos, that does not look AI generated and perfectly adheres to a video style that was created by their favorite videographer.
+
+For example, one style could be this video as “Ski House Style | By JT Visuals.
+
+When selected for editing - the user’s photoshoot would get all the same movements, on the same angles, cut up to the same song with all the same effects.
+
+Think about it like this: you upload your photos, and it’s like the person who built the style template has shot and edited the video for you.
+
+The video prompts are the shots.
+
+The clips they’re applied to, the order of the clips, and the cuts to the song are the edits.
+
+What this will require:
+
+We need a way for real estate videographers to create an edit style. This is where they cook creatively and create their style.
+For example: give them a demo photoshoot, let them turn each clip into a video, edit it, and capture all their creative decisions for reproducibility
+Another example: let them upload a past video and we recreate that style
+Another example: let them create an outline of the storyboard at every timestamp that then gets recreated.
+These examples are not meant to bias you towards any approach - rather help you understand the goal: reproduce their exact video they spent hours pouring creative energy into. 
+
+We need a way to capture their decisions and EXACTLY reproduce the style they created. Down to the song, the movement of the shots, and any other creative decisions. If you play their original edit and future, generated edits side by side - they should look nearly identical - just on a different house
+A way of then re-producing the edits and creative decisions on future photoshoots, which then product the video edit
+
+
+Final things to note:
+
+When we have done this with creatives, they want to be able to take a mediocre photo, and then manipulate it into looking like how they would do it. This could mean:
+their composition
+their lens
+the angle they’d get
+the exact movement they’d use
+the speed of the movement
+shot with the lighting for the time of day they want
+
+We observed they would do something like:
+
+
+Steps to follow for video generation
+1. Take a normal edited photo from our software (if they just used this, it would make it obvious it’s an AI video. The goal is the outputs are indistinguishable from a pro videographer.)
+2. Prompt Nano Banana (Google’s image model)
+    2.1 Transform this photo into a cinematic editorial image with harsh, directional shadows and crisp light shaping. Correct any perspective distortion—ensure vertical lines are truly vertical and horizontal lines are level. Maintain the exact scene composition after correction and preserve the original white balance.
+    2.2 Balance overall exposure with intention: raise interior midtones subtly for improved readability and presence, while preserving deep, sculpted shadow structure and strong contrast. The interior should feel brighter and more intentional, not flat or evenly lit—shadows must remain graphic, directional, and editorial. Highlights should stay controlled and natural.
+    2.3 Apply intentional, filmic window pulls that reveal deep, rich exterior views—preserve sky density, environmental color, and contrast beyond the glass. Exterior scenes should feel dimensional and weighty, never washed out or pastel.
+    2.4 Window highlights must roll off smoothly with realistic falloff; avoid haloing, edge glow, or global tonal compression. Do not flatten contrast or lift blacks globally. Window recovery should feel localized, natural, and optically believable—similar to a well-exposed negative rather than HDR processing.
+    2.5 Preserve all architectural and interior details. The scene should feel well-lit yet moody, polished and cinematic. Derive all lighting direction strictly from visible sources in the frame—windows, doors, architectural openings, and practical fixtures (lamps, sconces, pendants). Do not introduce light from walls or areas without logical entry points.
+    2.6 Maintain strong tonal separation between interior shadows and exterior highlights; window views should read clear, saturated, and contrast-rich, while the interior retains depth, drama, and editorial punch.
+3. Taking result of the last edit, then prompt Nano Banana again
+    3.1 Extreme close-up detail shot with smooth tracking camera following harsh directional light as it grows and spreads across textured surface. Crisp shadow edges crawl and shift in real time. Camera moves with the light's path revealing texture in wood grain, fabric weave, architectural detail. Editorial film style. Neutral white balance, balanced exposure — deep dramatic shadows without underexposure. Shallow depth of field.
+4. Taking the final photo, then generating the video
+    4.1 Prompt: “Very slow truck right, time-lapse light progression, camera slides laterally while light shifts across the space, shadows gradually move and lengthen, parallax effect, consistent exposure, stable motion, cinematic, photorealistic”
+
+
+Expected output: 
+1. Just in that sequence - we took an entry level photographer’s shot and made a cinematic timelapse detail shot that would take years of training, thousands of dollars in gear, and optimal lighting conditions to capture in real life.
+2. To help you further visualize how this product will look/feel - here are our UI mockups for this feature, and how we picture the overall experience once live for our users. 
+3. Once you understand this - your job is just to achieve this outcome - and figure out the zero -> one.
+

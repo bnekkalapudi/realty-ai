@@ -1,0 +1,40 @@
+Prompt starter kit from time we spent with the top 2 creatives iterating on videos:
+
+
+VIDEO MOVEMENTS
+(photo -> video models)
+
+Dolly In (Path-Based)
+Super smooth camera moves forward in straight line through space, cinematic
+Dolly In (timelapse)
+Super smooth camera moves forward in straight line through space,time-lapse light progression, shadows gradually move and lengthen, parallax effect, consistent exposure, stable motion, cinematic, photorealistic
+Drone Top Down Descend
+Super smooth camera descends in a straight line through space, cinematic
+Timelapse Variant
+Super smooth camera moves forward in straight line through space, cinematic. As time progresses, the sun lowers as the day progresses as a timelapse.
+Dolly Out (Path-Based)
+Super smooth camera moves backward in straight line revealing space, cinematic
+Slider Truck Left to Right (Path-Based)
+Super smooth camera glides horizontally from left to right, parallel path, cinematic
+Slider Truck Right to Left (Path-Based)
+Super smooth camera glides horizontally from right to left, parallel path, cinematic
+Parallax Orbit (Path-Based)
+Super smooth camera travels in arc around subject, subject stays centered, cinematic
+Dolly In + Pan Right (Path-Based)
+Super smooth camera moves forward while rotating gradually right, curved path, cinematic
+Crane Up (Path-Based)
+Super smooth camera rises vertically upward, straight vertical path, cinematic
+Crane Down (Path-Based)
+Super smooth camera descends vertically downward, straight vertical path, cinematic
+Orbit (Hyperlapse)
+Super smooth camera travels in arc around subject, subject stays centered, sky hyperlapses naturally in the background, cinematic
+
+Tuned for Kling O1:
+Slider Prompt:
+Very slow truck right, time-lapse light progression, camera slides laterally while light shifts across the space, shadows gradually move and lengthen, parallax effect, consistent exposure, stable motion, cinematic, photorealistic
+Wide slide
+Wide interior shot with slow trucking movement side to side as harsh directional light moves and expands across modern living space. Dramatic shadows crawl and shift across curved sofa, wood paneling, walls, and furnishings. Crisp shadow edges in motion. Camera tracks laterally through scene while light travels. Editorial film style. Neutral white balance, balanced exposure — deep shadows without underexposure. Smooth parallel motion. Atmospheric architectural cinematography.
+Wide dolly in
+Wide interior shot with a slow and smooth dolly in. Dramatic shadows crawl and shift across curved sofa, wood paneling, walls, and furnishings. Crisp shadow edges in motion. Camera tracks laterally through scene while light travels. Editorial film style. Neutral white balance, balanced exposure — deep shadows without underexposure. Smooth parallel motion. Atmospheric architectural cinematography.
+Tight truck
+Tight interior shot with slow trucking movement side to side as harsh directional light moves and expands across modern living space. Dramatic shadows crawl and shift across curved sofa, wood paneling, walls, and furnishings. Crisp shadow edges in motion. Camera tracks laterally through scene while light travels. Editorial film style. Neutral white balance, balanced exposure — deep shadows without underexposure. Smooth parallel motion. Atmospheric architectural cinematography.
