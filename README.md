@@ -42,15 +42,15 @@ When **Image Treatment** is set to **Cinematic** (default), each scene image is 
 
 This follows the prompt direction in:
 
-- [/Users/ai/Documents/realty-ai/prompts/HDR-process.txt](/Users/ai/Documents/realty-ai/prompts/HDR-process.txt)
-- [/Users/ai/Documents/realty-ai/prompts/image-to-image-cinematic.txt](/Users/ai/Documents/realty-ai/prompts/image-to-image-cinematic.txt)
+- [prompts/HDR-process.txt](prompts/HDR-process.txt)
+- [prompts/image-to-image-cinematic.txt](prompts/image-to-image-cinematic.txt)
 
 ### 5. Video prompt and scene generation
 The app builds scene prompts from:
 
 - the selected theme
 - the room category
-- motion rules from [/Users/ai/Documents/realty-ai/prompts/image-to-video.txt](/Users/ai/Documents/realty-ai/prompts/image-to-video.txt)
+- motion rules from [prompts/image-to-video.txt](prompts/image-to-video.txt)
 - TV / fireplace / driveway / structural-fidelity constraints
 - composition rules for fuller room coverage, especially for living rooms with multiple angles
 
@@ -187,9 +187,9 @@ Open the local URL printed by the server.
 
 ## Important Prompt Files
 
-- [/Users/ai/Documents/realty-ai/prompts/HDR-process.txt](/Users/ai/Documents/realty-ai/prompts/HDR-process.txt)
-- [/Users/ai/Documents/realty-ai/prompts/image-to-image-cinematic.txt](/Users/ai/Documents/realty-ai/prompts/image-to-image-cinematic.txt)
-- [/Users/ai/Documents/realty-ai/prompts/image-to-video.txt](/Users/ai/Documents/realty-ai/prompts/image-to-video.txt)
+- [prompts/HDR-process.txt](prompts/HDR-process.txt)
+- [prompts/image-to-image-cinematic.txt](prompts/image-to-image-cinematic.txt)
+- [prompts/image-to-video.txt](prompts/image-to-video.txt)
 
 These prompt files drive the app's cinematic treatment and motion behavior.
 
