@@ -211,3 +211,35 @@ The goal is to make a normal edited photoshoot feel like it was captured and edi
 - one final polished deliverable
 
 That is the core zero-to-one behavior this prototype is exploring.
+
+
+## Demo
+
+
+### Empty room
+<img width="480" height="270![Uploading Empty room to furniture with experience.gif…]()
+" alt="Empty room to furniture image" src="https://github.com/user-attachments/assets/45388411-8254-49b9-9c53-8d7596e291ba" />
+
+### Empty room to furniture with experience
+<img width="480" height="270" alt="Empty room to furniture with experience" src="https://github.com/user-attachments/assets/64ffb4aa-9ed3-4d4e-96d4-92dced6e1ea2" />
+
+
+
+
+
+
+### TV, fireplace and a mirror
+<img width="480" height="270" alt="TV-Fireplace-Mirror" src="https://github.com/user-attachments/assets/61d36726-6d3c-45d0-b4d1-99852742312f" />
+
+### TV, fireplace and a mirror
+<img width="480" height="270" alt="TV-Fireplace-Mirror" src="https://github.com/user-attachments/assets/38cb3aa8-cc20-4d64-8341-bc8751137e25" />
+
+
+### Realistic Lighting by Time of Day
+<img width="480" height="270" alt="Sun light" src="https://github.com/user-attachments/assets/93f3822c-7702-4a69-9bab-248333db77f8" />
+
+
+### Realistic Lighting by Time of Day
+<img width="480" height="270" alt="Sun light" src="https://github.com/user-attachments/assets/b9ce2434-c11f-474e-bb19-91854086baf4" />
+
+
